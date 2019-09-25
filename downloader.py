@@ -7,7 +7,7 @@ import os
 #TODO: build cli (That would support for now downloading full seriers, spesific seasons or spesific episodes)
 #TODO: add progress bar for the download
 #TODO: add support for bad file names
-#TODO: Thread the downloading, allow only one download at a time
+#TODO: Thread the downloading, allow only one download at a time (optional, add every new link into the queue and then use Event object)
 driver = webdriver.Chrome('chromedriver.exe')
 
 def main():
@@ -15,7 +15,9 @@ def main():
     baseUrl = ""
     tv_name = input('Enter tv show to download: ')
     search_results = search(tv_name)
-    print(search_results)
+    if not search_results:
+        print('No results found')
+        return
     while True:
         results_names = list(search_results.keys())
         for i in range(len(results_names)):
@@ -26,51 +28,62 @@ def main():
             baseUrl = search_results[tv_name][2]
             break
         print('Invalid option try again') #code is working
-    for episode in get_download_links(baseUrl, [1,2]):
+    os.mkdir(tv_name)
+    os.chdir(tv_name)
+    for episode in get_download_links(baseUrl):
         print(episode)
-        download_video(episode[1], f'{tv_name} {episode[0]}', episode[2])
+        download_path = f"{tv_name} S{episode['season']:0>2}"
+        if not os.path.exists(download_path):
+            os.mkdir(download_path)
+        download_video(episode['video_link'], f"{tv_name} S{episode['season']:0>2}E{episode['episode']:0>2}.{episode['format']}", episode['cookies'], download_path)
     driver.close()
 
 
-def get_download_links(page_link, seasons):
+def get_download_links(page_link, seasons = None):
     """
     The function will get the download links for spesific seasons
     :param page_link: link to the page of the tv show in sdarot
-    :seasons: list of seasons to download (if None it will download every season)
-    :return: The function will return a generator that generates the download links in the following tupple format (episode header, episode video link, current driver cookies)
+    :seasons: list of seasons to download (if not specified it will download every season)
+    :return: The function will return a generator that generates the download links in the following dict format 
+    {season: season_number, episode: episode_number, video_link:link to the video, cookies: driver cookies, format:file format}
     """
     driver.get(page_link)
     seasons_links = list(map(lambda s: s.get_attribute('href'), driver.find_elements_by_xpath(r'//*[@id="season"]/li[*]/a')))
     if seasons == None: #if the user decide to download all seasons
-        seasons = range(1, list(len(seasons_links) + 1))
+        seasons = range(1, len(seasons_links) + 1)
 
     for season_number in seasons:
-        assert 0 < season_number < len(seasons_links), "Invalid season number" #TODO validate season numbers
+        assert 0 < season_number <= len(seasons_links), f"Invalid season number {season_number}" #TODO validate season numbers
         season = seasons_links[season_number - 1]
-        print('*', 'season ' ,season[season.rfind('/') + 1:] , '*')
         driver.get(season)
         episodes_links = list(map(lambda e: e.get_attribute('href'), driver.find_elements_by_xpath(r'//*[@id="episode"]/li[@*]/a'))) #getting episode pages link
-        for episode in episodes_links[8:]:
-            episode_header = episode[episode.find('season'):].replace('/', ' ').title()
-            driver.get(episode)
+        for link in episodes_links:
+            episode = {}
+            header = re.split('([0-9]+)/episode/([0-9])', link)[1:3]
+            episode['season'] = header[0]
+            episode['episode'] = header[1]
+            driver.get(link)
             countdown()
-            video_link = driver.find_element_by_tag_name('video').get_attribute('src')
-            yield (f'{episode_header}.mp4', video_link, driver.get_cookies())
+            episode['video_link'] = driver.find_element_by_tag_name('video').get_attribute('src')
+            episode['cookies'] = driver.get_cookies()
+            episode['format'] = 'mp4' #TODO change it to correct file format
+            yield (episode)
 
 
-def download_video(url, name, cookies):
+def download_video(url, name, cookies, path=""):
     """
         The function will download a video url with spesific cookies
         :param url: the url of the video to download
         :param name: the name of output file
         :param cookies: supplied cookied for the download
+        :param path: The path to download the file to (if not specified will be in current directory)
     """
     s = requests.Session()
     for cookie in cookies:
         s.cookies.set(cookie['name'], cookie['value'])
     response = s.get(url, stream = True)
     name = name.replace(':', '-')
-    with open(name, 'wb') as f:  
+    with open(os.path.join(path, name), 'wb') as f:  
         f.write(response.content)
     print(name, " Download complete")
 
@@ -88,7 +101,7 @@ def countdown():
     print()
 
 
-def search(keyword): #TODO: add a condition that checks no resuls, only one result
+def search(keyword): #TODO: get content if its only one result
     """
     The function will scrape data from the search enginge in sdarot
     :param keyword: the string to search
@@ -97,6 +110,7 @@ def search(keyword): #TODO: add a condition that checks no resuls, only one resu
     base = r'https://sdarot.world/search?term=' #TODO: change the link (http://sdarot.world/) to be read from config file
     global driver
     driver.get(base + keyword.replace(' ', '+'))
+    assert r'/watch/' not in driver.current_url, "Only one result"
     links = {}
     for result in driver.find_elements_by_xpath(r'//*[@id="seriesList"]/div[*]/div/div[*]/div'):
         name = result.find_element_by_tag_name('h5').get_attribute('innerHTML') #title of the tv show
@@ -105,8 +119,6 @@ def search(keyword): #TODO: add a condition that checks no resuls, only one resu
         link = result.find_element_by_tag_name('a').get_attribute('href')
         links[name] = (heb_name, date, link)
     return links
-
-
 
 if __name__ == '__main__':
     main()
