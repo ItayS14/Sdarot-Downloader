@@ -3,10 +3,11 @@ import requests
 import time
 import re
 import os
+from tqdm import tqdm
+import colorama
+from colorama import Style, Fore
 
 #TODO: build cli (That would support for now downloading full seriers, spesific seasons or spesific episodes)
-#TODO: add progress bar for the download
-#TODO: add support for bad file names
 #TODO: Thread the downloading, allow only one download at a time (optional, add every new link into the queue and then use Event object)
 driver = webdriver.Chrome('chromedriver.exe')
 
@@ -28,13 +29,15 @@ def main():
             baseUrl = search_results[tv_name][2]
             break
         print('Invalid option try again') #code is working
+    tv_name = re.sub(r'[/\\:*?"<>|]', '', tv_name) #turning the string into a valid file name for windows
     os.mkdir(tv_name)
     os.chdir(tv_name)
     for episode in get_download_links(baseUrl):
-        print(episode)
         download_path = f"{tv_name} S{episode['season']:0>2}"
         if not os.path.exists(download_path):
             os.mkdir(download_path)
+            print(Fore.BLUE + f"Downloading {tv_name} Seaspm {episode['season']}")
+            print(Style.RESET_ALL)
         download_video(episode['video_link'], f"{tv_name} S{episode['season']:0>2}E{episode['episode']:0>2}.{episode['format']}", episode['cookies'], download_path)
     driver.close()
 
@@ -83,9 +86,11 @@ def download_video(url, name, cookies, path=""):
         s.cookies.set(cookie['name'], cookie['value'])
     response = s.get(url, stream = True)
     name = name.replace(':', '-')
+    total_size = int(response.headers['content-length'])
+    chunk_size = 1024
     with open(os.path.join(path, name), 'wb') as f:  
-        f.write(response.content)
-    print(name, " Download complete")
+         for data in tqdm(iterable=response.iter_content(chunk_size=chunk_size), desc=name, total=total_size / chunk_size, unit='KB'):
+            f.write(data)
 
     
 def countdown():
