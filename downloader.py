@@ -6,10 +6,18 @@ import os
 from tqdm import tqdm
 import colorama
 from colorama import Style, Fore
+from selenium.webdriver.chrome.options import Options
+import yaml
 
 #TODO: build cli (That would support for now downloading full seriers, spesific seasons or spesific episodes)
 #TODO: Thread the downloading, allow only one download at a time (optional, add every new link into the queue and then use Event object)
-driver = webdriver.Chrome('chromedriver.exe')
+options = Options()
+options.add_argument("--headless")
+driver = webdriver.Chrome(chrome_options=options)
+
+with open('config.yaml') as f:
+    config = yaml.load(f)
+
 
 def main():
     global driver
@@ -30,13 +38,16 @@ def main():
             break
         print('Invalid option try again') #code is working
     tv_name = re.sub(r'[/\\:*?"<>|]', '', tv_name) #turning the string into a valid file name for windows
+
+    os.chdir(config['default download path']) 
     os.mkdir(tv_name)
     os.chdir(tv_name)
+
     for episode in get_download_links(baseUrl):
         download_path = f"{tv_name} S{episode['season']:0>2}"
         if not os.path.exists(download_path):
             os.mkdir(download_path)
-            print(Fore.BLUE + f"Downloading {tv_name} Seaspm {episode['season']}")
+            print(Fore.BLUE + f"Downloading {tv_name} Season {episode['season']}")
             print(Style.RESET_ALL)
         download_video(episode['video_link'], f"{tv_name} S{episode['season']:0>2}E{episode['episode']:0>2}.{episode['format']}", episode['cookies'], download_path)
     driver.close()
@@ -112,7 +123,7 @@ def search(keyword): #TODO: get content if its only one result
     :param keyword: the string to search
     :return: dictionary ({'title of the tv show' : (hebrew name, year it went live, link to the tv show page on sdarot)})
     """
-    base = r'https://sdarot.world/search?term=' #TODO: change the link (http://sdarot.world/) to be read from config file
+    base = config['sdarot base url'] + 'search?term=' #TODO: change the link (http://sdarot.world/) to be read from config file
     global driver
     driver.get(base + keyword.replace(' ', '+'))
     assert r'/watch/' not in driver.current_url, "Only one result"
