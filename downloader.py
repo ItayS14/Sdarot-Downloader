@@ -8,6 +8,7 @@ import colorama
 from colorama import Style, Fore
 from selenium.webdriver.chrome.options import Options
 import yaml
+import cutie
 
 #TODO: build cli (That would support for now downloading full seriers, spesific seasons or spesific episodes)
 #TODO: Thread the downloading, allow only one download at a time (optional, add every new link into the queue and then use Event object)
@@ -26,17 +27,15 @@ def main():
     search_results = search(tv_name)
     if not search_results:
         print('No results found')
-        return
-    while True:
-        results_names = list(search_results.keys())
-        for i in range(len(results_names)):
-            print(f'{i} - {results_names[i]} - {search_results[results_names[i]][0]} ({search_results[results_names[i]][1]})')
-        selection = input('Enter the correct tv show index: ')
-        if selection.isdigit() and 0 <= int(selection) < len(results_names):
-            tv_name = results_names[int(selection)]
-            baseUrl = search_results[tv_name][2]
-            break
-        print('Invalid option try again') #code is working
+        exit()
+    print('Select TV show to download')    
+    results_names = list(search_results.keys())    
+    formated_names = list(map(lambda name : f'{name} - {search_results[name][0]} ({search_results[name][1]})', results_names)) + ['Exit']
+    index = cutie.select(formated_names)
+    if index == len(results_names): #if user wants to exit
+        exit()
+    tv_name = results_names[index]
+    baseUrl = search_results[tv_name][2]
     tv_name = re.sub(r'[/\\:*?"<>|]', '', tv_name) #turning the string into a valid file name for windows
 
     os.chdir(config['default download path']) 
@@ -73,7 +72,7 @@ def get_download_links(page_link, seasons = None):
         episodes_links = list(map(lambda e: e.get_attribute('href'), driver.find_elements_by_xpath(r'//*[@id="episode"]/li[@*]/a'))) #getting episode pages link
         for link in episodes_links:
             episode = {}
-            header = re.split('([0-9]+)/episode/([0-9])', link)[1:3]
+            header = re.split('([0-9]+)/episode/([0-9]+)', link)[1:3]
             episode['season'] = header[0]
             episode['episode'] = header[1]
             driver.get(link)
@@ -123,7 +122,7 @@ def search(keyword): #TODO: get content if its only one result
     :param keyword: the string to search
     :return: dictionary ({'title of the tv show' : (hebrew name, year it went live, link to the tv show page on sdarot)})
     """
-    base = config['sdarot base url'] + 'search?term=' #TODO: change the link (http://sdarot.world/) to be read from config file
+    base = config['sdarot base url'] + 'search?term='
     global driver
     driver.get(base + keyword.replace(' ', '+'))
     assert r'/watch/' not in driver.current_url, "Only one result"
