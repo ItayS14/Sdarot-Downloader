@@ -37,7 +37,7 @@ def main():
     tv_name = results_names[index]
     baseUrl = search_results[tv_name][2]
     tv_name = re.sub(r'[/\\:*?"<>|]', '', tv_name) #turning the string into a valid file name for windows
-
+   
     os.chdir(config['default download path']) 
     os.mkdir(tv_name)
     os.chdir(tv_name)
@@ -116,7 +116,7 @@ def countdown():
     print()
 
 
-def search(keyword): #TODO: get content if its only one result
+def search(keyword): 
     """
     The function will scrape data from the search enginge in sdarot
     :param keyword: the string to search
@@ -125,8 +125,17 @@ def search(keyword): #TODO: get content if its only one result
     base = config['sdarot base url'] + 'search?term='
     global driver
     driver.get(base + keyword.replace(' ', '+'))
-    assert r'/watch/' not in driver.current_url, "Only one result"
     links = {}
+    
+    if '/watch/' in driver.current_url: #Case that there was only one result (if there is only one result sdarot redirect the website to the tv show page)
+        name = driver.find_element_by_xpath(r'//*[@id="watchEpisode"]/div[1]/div/h1').text
+        name = name.split(' / ')
+        heb_name = name[0][::-1]
+        name = name[1]
+        date = driver.find_element_by_id('year').text
+        links[name] = (heb_name, date, driver.current_url)
+        return links
+
     for result in driver.find_elements_by_xpath(r'//*[@id="seriesList"]/div[*]/div/div[*]/div'):
         name = result.find_element_by_tag_name('h5').get_attribute('innerHTML') #title of the tv show
         heb_name = result.find_element_by_tag_name('h4').get_attribute('innerHTML')[::-1] #getting the hebrew name of the tv show
