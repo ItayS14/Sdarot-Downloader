@@ -3,30 +3,21 @@ import click
 import cutie
 import re
 import os
+from winreg import *
 
 
 class NoResults(Exception): #Will be thrown if no results were found in a search query
     pass
 
-@click.command()
-@click.option('--seasons', default=None, help="Seasons to download, divided by comma")
-@click.argument('tv_show')
-def download(seasons, tv_show):
-    print(seasons)
-    try:
-        tv_name, base_url = get_one_result(tv_show)
-        if seasons:
-            seasons = [int(x) for x in seasons.split(',')]
-        for episode in downloader.get_download_links(base_url, seasons):
-            download_path = f"{tv_name} S{episode['season']:0>2}"
-            if not os.path.exists(download_path):
-                os.mkdir(download_path)
-            downloader.download_video(episode['video_link'], f"{tv_name} S{episode['season']:0>2}E{episode['episode']:0>2}.{episode['format']}", episode['cookies'], download_path)
-    except ValueError: #Case that season number was not int
-        raise click.BadParameter('Seasons must be a number')   
-    except NoResults:
-        raise click.BadOptionUsage('No results found')
-    
+
+def get_download_path(): 
+    """
+    The function will use winreg module to get the user Download folder path
+    :return: path to the Download folder (str)
+    """
+    with OpenKey(HKEY_CURRENT_USER, 'SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders') as key:
+        download_path = QueryValueEx(key, '{374DE290-123F-4565-9164-39C4925E467B}')[0]
+    return download_path
 
 
 def get_one_result(tv_show):
@@ -38,9 +29,9 @@ def get_one_result(tv_show):
     search_results = downloader.search(tv_show)
     if not search_results:
         raise NoResults
-    print('Select TV show to download')    
+    click.echo('Select TV show to download')    
     results_names = list(search_results.keys())    
-    formated_names = list(map(lambda name : f'{name} - {search_results[name][0]} ({search_results[name][1]})', results_names)) + ['Exit']
+    formated_names = [f'{name} - {search_results[name][0]} ({search_results[name][1]})' for name in  results_names] + ['Exit']
     index = cutie.select(formated_names)
     if index == len(results_names): #if user wants to exit
         exit()
@@ -48,6 +39,36 @@ def get_one_result(tv_show):
     base_url = search_results[tv_name][2]
     tv_name = re.sub(r'[/\\:*?"<>|]', '', tv_name) #turning the string into a valid file name for windows
     return (tv_name, base_url)
+
+#TODO: add support for spesific episodes
+@click.command(context_settings=dict(help_option_names=['-h', '--help']))
+@click.option('--seasons', default=None, help="Seasons to download, divided by comma")
+@click.option('--download-path', default=get_download_path(), help='Set the downlaod path, by default download path is set to Download folder')
+@click.argument('tv_show')
+def download(seasons, download_path, tv_show):
+    """This script will download tv shows from sdarot tv website
+    
+    TV_SHOW is the name of the tv show to download
+    """
+    try:
+        tv_name, base_url = get_one_result(tv_show)
+        if seasons:
+            seasons = [int(x) for x in seasons.split(',')]
+        
+        os.mkdir(os.path.join(download_path, tv_name))
+        os.chdir(os.path.join(download_path, tv_name))
+
+        for episode in downloader.get_download_links(base_url, seasons):
+            download_path = f"{tv_name} S{episode['season']:0>2}"
+            if not os.path.exists(download_path):
+                os.mkdir(download_path)
+            downloader.download_video(episode['video_link'], f"{tv_name} S{episode['season']:0>2}E{episode['episode']:0>2}.{episode['format']}", episode['cookies'], download_path)
+    except ValueError: #Case that season number was not int
+        raise click.BadParameter('Seasons must be a number')   
+    except NoResults:
+        raise click.BadOptionUsage('No results found')
+    
+    downloader.driver.close()
 
 if __name__ == '__main__':
     download()

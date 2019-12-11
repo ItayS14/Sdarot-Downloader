@@ -9,48 +9,12 @@ from colorama import Style, Fore
 from selenium.webdriver.chrome.options import Options
 import yaml
 import cutie
-
-#TODO: build cli (That would support for now downloading full seriers, spesific seasons or spesific episodes)
+    
+#TODO: Change the module to be a class
 #TODO: Thread the downloading, allow only one download at a time (optional, add every new link into the queue and then use Event object)
 options = Options()
 options.add_argument("--headless")
 driver = webdriver.Chrome(chrome_options=options)
-
-with open('config.yaml') as f:
-    config = yaml.load(f)
-
-
-def main():
-    global driver
-    baseUrl = ""
-    tv_name = input('Enter tv show to download: ')
-    search_results = search(tv_name)
-    if not search_results:
-        print('No results found')
-        exit()
-    print('Select TV show to download')    
-    results_names = list(search_results.keys())    
-    formated_names = list(map(lambda name : f'{name} - {search_results[name][0]} ({search_results[name][1]})', results_names)) + ['Exit']
-    index = cutie.select(formated_names)
-    if index == len(results_names): #if user wants to exit
-        exit()
-    tv_name = results_names[index]
-    baseUrl = search_results[tv_name][2]
-    tv_name = re.sub(r'[/\\:*?"<>|]', '', tv_name) #turning the string into a valid file name for windows
-   
-    os.chdir(config['default download path']) 
-    os.mkdir(tv_name)
-    os.chdir(tv_name)
-
-    for episode in get_download_links(baseUrl):
-        download_path = f"{tv_name} S{episode['season']:0>2}"
-        if not os.path.exists(download_path):
-            os.mkdir(download_path)
-            print(Fore.BLUE + f"Downloading {tv_name} Season {episode['season']}")
-            print(Style.RESET_ALL)
-        download_video(episode['video_link'], f"{tv_name} S{episode['season']:0>2}E{episode['episode']:0>2}.{episode['format']}", episode['cookies'], download_path)
-    driver.close()
-
 
 def get_download_links(page_link, seasons = None):
     """
@@ -122,7 +86,7 @@ def search(keyword):
     :param keyword: the string to search
     :return: dictionary ({'title of the tv show' : (hebrew name, year it went live, link to the tv show page on sdarot)})
     """
-    base = config['sdarot base url'] + 'search?term='
+    base = 'https://sdarot.world/search?term='
     global driver
     driver.get(base + keyword.replace(' ', '+'))
     links = {}
