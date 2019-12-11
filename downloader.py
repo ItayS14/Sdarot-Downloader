@@ -4,11 +4,7 @@ import time
 import re
 import os
 from tqdm import tqdm
-import colorama
-from colorama import Style, Fore
 from selenium.webdriver.chrome.options import Options
-import yaml
-import cutie
     
 #TODO: Change the module to be a class
 #TODO: Thread the downloading, allow only one download at a time (optional, add every new link into the queue and then use Event object)
@@ -25,7 +21,7 @@ def get_download_links(page_link, seasons = None):
     {season: season_number, episode: episode_number, video_link:link to the video, cookies: driver cookies, format:file format}
     """
     driver.get(page_link)
-    seasons_links = list(map(lambda s: s.get_attribute('href'), driver.find_elements_by_xpath(r'//*[@id="season"]/li[*]/a')))
+    seasons_links = [s.get_attribute('href') for s in driver.find_elements_by_xpath(r'//*[@id="season"]/li[*]/a')]
     if seasons == None: #if the user decide to download all seasons
         seasons = range(1, len(seasons_links) + 1)
 
@@ -33,7 +29,7 @@ def get_download_links(page_link, seasons = None):
         assert 0 < season_number <= len(seasons_links), f"Invalid season number {season_number}" #TODO validate season numbers
         season = seasons_links[season_number - 1]
         driver.get(season)
-        episodes_links = list(map(lambda e: e.get_attribute('href'), driver.find_elements_by_xpath(r'//*[@id="episode"]/li[@*]/a'))) #getting episode pages link
+        episodes_links = [e.get_attribute('href') for e in driver.find_elements_by_xpath(r'//*[@id="episode"]/li[@*]/a')] #getting episode pages link
         for link in episodes_links:
             episode = {}
             header = re.split('([0-9]+)/episode/([0-9]+)', link)[1:3]
