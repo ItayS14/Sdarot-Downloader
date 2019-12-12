@@ -6,8 +6,7 @@ import os
 from tqdm import tqdm
 from selenium.webdriver.chrome.options import Options
     
-#TODO: Change the module to be a class
-#TODO: Thread the downloading, allow only one download at a time (optional, add every new link into the queue and then use Event object)
+
 options = Options()
 options.add_argument("--headless")
 driver = webdriver.Chrome(chrome_options=options)
@@ -103,6 +102,3 @@ def search(keyword):
         link = result.find_element_by_tag_name('a').get_attribute('href')
         links[name] = (heb_name, date, link)
     return links
-
-if __name__ == '__main__':
-    main()

@@ -40,7 +40,7 @@ def get_one_result(tv_show):
     tv_name = re.sub(r'[/\\:*?"<>|]', '', tv_name) #turning the string into a valid file name for windows
     return (tv_name, base_url)
 
-#TODO: add support for spesific episodes
+
 @click.command(context_settings=dict(help_option_names=['-h', '--help']))
 @click.option('--seasons', default=None, help="Seasons to download, divided by comma")
 @click.option('--download-path', default=get_download_path(), help='Set the downlaod path, by default download path is set to Download folder')
