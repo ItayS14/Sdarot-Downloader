@@ -1,4 +1,4 @@
-import downloader
+from downloader import SdarotDownloader
 import click
 import cutie
 import re
@@ -20,7 +20,7 @@ def get_download_path():
     return download_path
 
 
-def get_one_result(tv_show):
+def get_one_result(downloader, tv_show):
     """
     The function will get a spesific result from the search query
     :param tv_show: the name of the tv show (str)
@@ -47,28 +47,25 @@ def get_one_result(tv_show):
 @click.argument('tv_show')
 def download(seasons, download_path, tv_show):
     """This script will download tv shows from sdarot tv website
-    
     TV_SHOW is the name of the tv show to download
     """
+    downloader = SdarotDownloader('https://sdarot.world/')
     try:
-        tv_name, base_url = get_one_result(tv_show)
+        tv_name, base_url = get_one_result(downloader, tv_show)
         if seasons:
             seasons = [int(x) for x in seasons.split(',')]
-        
-        os.mkdir(os.path.join(download_path, tv_name))
-        os.chdir(os.path.join(download_path, tv_name))
-
-        for episode in downloader.get_download_links(base_url, seasons):
-            download_path = f"{tv_name} S{episode['season']:0>2}"
-            if not os.path.exists(download_path):
-                os.mkdir(download_path)
-            downloader.download_video(episode['video_link'], f"{tv_name} S{episode['season']:0>2}E{episode['episode']:0>2}.{episode['format']}", episode['cookies'], download_path)
     except ValueError: #Case that season number was not int
         raise click.BadParameter('Seasons must be a number')   
     except NoResults:
         raise click.BadOptionUsage('No results found')
-    
-    downloader.driver.close()
+    else:
+        os.mkdir(os.path.join(download_path, tv_name))
+        os.chdir(os.path.join(download_path, tv_name))
+
+        for episode in downloader.get_episodes(tv_name, base_url, seasons):
+            episode.download(download_path)
+    finally:       
+        SdarotDownloader.close_driver()
 
 if __name__ == '__main__':
     download()
