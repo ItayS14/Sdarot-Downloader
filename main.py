@@ -6,10 +6,6 @@ import os
 from winreg import *
 
 
-class NoResults(Exception): #Will be thrown if no results were found in a search query
-    pass
-
-
 def get_download_path(): 
     """
     The function will use winreg module to get the user Download folder path
@@ -27,18 +23,13 @@ def get_one_result(downloader, tv_show):
     :return: tv_name, base_url (tupple)
     """
     search_results = downloader.search(tv_show)
-    if not search_results:
-        raise NoResults
-    click.echo('Select TV show to download')    
-    results_names = list(search_results.keys())    
-    formated_names = [f'{name} - {search_results[name][0]} ({search_results[name][1]})' for name in  results_names] + ['Exit']
-    index = cutie.select(formated_names)
-    if index == len(results_names): #if user wants to exit
+    if len(search_results) == 1: # Case that there was only one result
+        return search_results[0] 
+    click.echo('Select TV show to download')     
+    index = cutie.select([str(tv) for tv in search_results] + ['Exit'])
+    if index == len(search_results): #if user wants to exit
         exit()
-    tv_name = results_names[index]
-    base_url = search_results[tv_name][2]
-    tv_name = re.sub(r'[/\\:*?"<>|]', '', tv_name) #turning the string into a valid file name for windows
-    return (tv_name, base_url)
+    return search_results[index]
 
 
 @click.command(context_settings=dict(help_option_names=['-h', '--help']))
@@ -56,12 +47,14 @@ def download(seasons, download_path, tv_show):
             seasons = [int(x) for x in seasons.split(',')]
     except ValueError: #Case that season number was not int
         raise click.BadParameter('Seasons must be a number')   
-    except NoResults:
-        raise click.BadOptionUsage('No results found')
+    except SdarotDownloader.NoResultsFound as e:
+        raise click.BadOptionUsage(e)
     else:
-        os.mkdir(os.path.join(download_path, tv_name))
-        os.chdir(os.path.join(download_path, tv_name))
-
+        print('Downloading:', tv_name)
+        download_path = os.path.join(download_path, tv_name)
+        if not os.path.isdir(download_path):
+            os.mkdir(download_path)
+        os.chdir(download_path)
         for episode in downloader.get_episodes(tv_name, base_url, seasons):
             episode.download(download_path)
     finally:       
