@@ -1,9 +1,10 @@
-from downloader import SdarotDownloader
+from downloader import SdarotDownloader, Episode
 import click
 import cutie
 import re
 import os
 from winreg import *
+import concurrent.futures
 
 
 def get_download_path(): 
@@ -52,11 +53,13 @@ def download(seasons, download_path, tv_show):
     else:
         print('Downloading:', tv_name)
         download_path = os.path.join(download_path, tv_name)
+        print('Download path:', download_path)
         if not os.path.isdir(download_path):
             os.mkdir(download_path)
         os.chdir(download_path)
-        for episode in downloader.get_episodes(tv_name, base_url, seasons):
-            episode.download(download_path)
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+            for episode in downloader.get_episodes(tv_name, base_url, seasons):
+                executor.submit(Episode.download, episode, download_path)
     finally:       
         SdarotDownloader.close_driver()
 

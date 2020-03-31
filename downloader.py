@@ -81,10 +81,8 @@ class SdarotDownloader:
         """
         timer = float(cls.driver.find_element_by_xpath(r'//*[@id="waitTime"]/span').get_attribute('outerText'))
         while timer != 0:
-            print(f'{timer} Seconds remaining', end='\r')
             timer = float(cls.driver.find_element_by_xpath(r'//*[@id="waitTime"]/span').get_attribute('outerText'))
         time.sleep(2)
-        print()
 
     @classmethod
     def close_driver(cls):
