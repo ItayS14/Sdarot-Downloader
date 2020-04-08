@@ -5,7 +5,7 @@ import re
 import os
 from winreg import *
 import concurrent.futures
-
+from collections import defaultdict
 
 def get_download_path(): 
     """
@@ -32,6 +32,23 @@ def get_one_result(downloader, tv_show):
         exit()
     return search_results[index]
 
+def parse_seasson_input(seasons):
+    """
+    The function will parse the season input from the user
+    :param seasons: the text to parse (following format 1,2,3,5[3], 6[4:2] - str)
+    :return: dict with season number as keys and episodes as values - no episodes means download every episode (collections.defaultdict - keys integers, values sets )
+    """
+    if not seasons:
+        return None
+    res = defaultdict(lambda: set())
+    for season in seasons.split(','):
+        first, second = season.find('['), season.find(']')
+        if first != -1 and second != -1:
+            episodes = [int(episode) for episode in season[first + 1: second].split(':')]
+            res[int(season[:first])].update(set(range(episodes[0],episodes[1])) if len(episodes) != 1 else set(episodes)) # In case that input was like 1:2 adding range ofepisodes, else adding the spesific episode
+        else:
+            res[int(season)].update(set())
+    return res
 
 @click.command(context_settings=dict(help_option_names=['-h', '--help']))
 @click.option('--seasons', default=None, help="Seasons to download, divided by comma")
@@ -44,8 +61,7 @@ def download(seasons, download_path, tv_show):
     downloader = SdarotDownloader('https://sdarot.world/')
     try:
         tv_name, base_url = get_one_result(downloader, tv_show)
-        if seasons:
-            seasons = [int(x) for x in seasons.split(',')]
+        seasons = parse_seasson_input(seasons)
     except ValueError: #Case that season number was not int
         raise click.BadParameter('Seasons must be a number')   
     except SdarotDownloader.NoResultsFound as e:

@@ -5,7 +5,7 @@ import re
 import os
 from tqdm import tqdm
 from selenium.webdriver.chrome.options import Options
-
+import itertools
 
 class SdarotDownloader:
     options = Options()
@@ -18,6 +18,16 @@ class SdarotDownloader:
         
         def __str__(self):
             return f'No results found for: "{self._keyword}"'
+
+    class InvalidParams(Exception):
+        def __init__(self, season, episode = None):
+            self._season = season
+            self._episode = episode
+        
+        def __str__(self):
+            if self._episode:
+                return f'Episode not found S{self._season}E{self._episode}'
+            return f'Season not found - Season {self._season}'
 
     def __init__(self, base_url):
         self._base_url = base_url
@@ -56,23 +66,42 @@ class SdarotDownloader:
         :seasons: list of seasons to download (if not specified it will download every season)
         :return: generator that generates Episode classes for each episode
         """
+        for link in cls._get_links_for_episodes(page_link, seasons):
+            season_number, episode_number = re.split('([0-9]+)/episode/([0-9]+)', link)[1:3]
+            cls.driver.get(link)
+            cls.countdown()
+            video_link = cls.driver.find_element_by_tag_name('video').get_attribute('src')
+            cookie = cls.driver.get_cookies()
+            yield Episode(tv_name, season_number, episode_number, video_link, cookie, 'mp4')
+
+    @classmethod
+    def _get_links_for_episodes(cls, page_link, seasons):
+        """
+        Helper function that will parse the input and retrive links for the get_episodes function
+        :param page_link: link for the tv show page (str)
+        :param seasons: the structure to parse (defaultdict)
+        :return: links of the episodes to download
+        :raise: InvalidParams if one of the paramaeters was not valid
+        """
         cls.driver.get(page_link)
         seasons_links = [s.get_attribute('href') for s in cls.driver.find_elements_by_xpath(r'//*[@id="season"]/li[*]/a')]
-        if seasons == None: #if the user decide to download all seasons
-            seasons = range(1, len(seasons_links) + 1)
+        links = []
+        if not seasons:
+            seasons = zip(range(1, len(season_links) + 1, itertools.repeat(set()))) # Creating a dict that means download everything
 
-        for season_number in seasons:
-            assert 0 < season_number <= len(seasons_links), f"Invalid season number {season_number}" #TODO validate season numbers
-            season = seasons_links[season_number - 1]
-            cls.driver.get(season)
-            episodes_links = [e.get_attribute('href') for e in cls.driver.find_elements_by_xpath(r'//*[@id="episode"]/li[@*]/a')] #getting episode pages link
-            for link in episodes_links:
-                season_number, episode_number = re.split('([0-9]+)/episode/([0-9]+)', link)[1:3]
-                cls.driver.get(link)
-                cls.countdown()
-                video_link = cls.driver.find_element_by_tag_name('video').get_attribute('src')
-                cookie = cls.driver.get_cookies()
-                yield Episode(tv_name, season_number, episode_number, video_link, cookie, 'mp4')
+        for season, episodes in seasons.items():
+            if 0 >= season  or season > len(seasons_links):
+                raise cls.InvalidParams(season)
+            cls.driver.get(seasons_links[season -1])
+            episodes_links = [e.get_attribute('href') for e in cls.driver.find_elements_by_xpath(r'//*[@id="episode"]/li[@*]/a')] 
+            if episodes_links:
+                for episode in episodes:
+                    if 0 >= episode or episode > len(episodes_links):
+                        raise cls.InvalidParams(season, episode)
+                    links.append(episodes_links[episode - 1])
+            else:
+                links += episodes_links
+        return links
 
     @classmethod
     def countdown(cls):
@@ -105,6 +134,12 @@ class Episode:
         """
         The function will download the episode specified in the class
         """
+        dir_name = 'Season ' + self._season_number
+        if not os.path.isdir(dir_name):
+            print('Downloading', dir_name)
+            os.mkdir(dir_name)
+        path = os.path.join(path, dir_name)
+
         s = requests.Session()
         for cookie in self._cookies:
             s.cookies.set(cookie['name'], cookie['value'])
