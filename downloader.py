@@ -59,14 +59,14 @@ class SdarotDownloader:
         return links
 
     @classmethod
-    def get_episodes(cls, tv_name, page_link, seasons = None):
+    def get_episodes(cls, tv_name, links):
         """
         The function will get the the episodes for a season
-        :param page_link: link to the page of the tv show in sdarot
-        :seasons: list of seasons to download (if not specified it will download every season)
+        :param tv_name: the name of the tv show (str)
+        :param links: the links to download the episodes from (list of str)
         :return: generator that generates Episode classes for each episode
         """
-        for link in cls._get_links_for_episodes(page_link, seasons):
+        for link in links:
             season_number, episode_number = re.split('([0-9]+)/episode/([0-9]+)', link)[1:3]
             cls.driver.get(link)
             cls.countdown()
@@ -75,7 +75,7 @@ class SdarotDownloader:
             yield Episode(tv_name, season_number, episode_number, video_link, cookie, 'mp4')
 
     @classmethod
-    def _get_links_for_episodes(cls, page_link, seasons):
+    def get_links_for_episodes(cls, page_link, seasons):
         """
         Helper function that will parse the input and retrive links for the get_episodes function
         :param page_link: link for the tv show page (str)
@@ -86,15 +86,17 @@ class SdarotDownloader:
         cls.driver.get(page_link)
         seasons_links = [s.get_attribute('href') for s in cls.driver.find_elements_by_xpath(r'//*[@id="season"]/li[*]/a')]
         links = []
-        if not seasons:
-            seasons = zip(range(1, len(season_links) + 1, itertools.repeat(set()))) # Creating a dict that means download everything
+        if seasons:
+        	seasons = seasons.items()
+        else:
+            seasons = zip(range(1, len(seasons_links) + 1), itertools.repeat(set())) # Creating a dict that means download everything
 
-        for season, episodes in seasons.items():
+        for season, episodes in seasons:
             if 0 >= season  or season > len(seasons_links):
                 raise cls.InvalidParams(season)
             cls.driver.get(seasons_links[season -1])
             episodes_links = [e.get_attribute('href') for e in cls.driver.find_elements_by_xpath(r'//*[@id="episode"]/li[@*]/a')] 
-            if episodes_links:
+            if episodes:
                 for episode in episodes:
                     if 0 >= episode or episode > len(episodes_links):
                         raise cls.InvalidParams(season, episode)

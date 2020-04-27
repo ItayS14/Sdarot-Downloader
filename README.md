@@ -1,4 +1,6 @@
-A command line tool to download tv shows from sdarot website
+# Sdarot Downloader
+
+A command line tool to download tv shows from [Sdarot](<https://sdarot.world/>)
 
 - Capable of downloading specific episodes or entire seasons
 - Fetching search results if not sure what the tv show is
@@ -22,7 +24,7 @@ Options:
 
 ### Examples
 
-Example for the search:
+Example of the search:
 
 ```cmd
 python main.py Avatar
@@ -34,5 +36,13 @@ Select TV show to download
 [ ] Exit
 ```
 
-Example for downloading a TV show:
+Example of downloading a TV show:
+
+```cmd
+Downloading: Avatar The Last Airbender
+Download path: C:\Users\user\Downloads\Avatar The Last Airbender
+Downloading Season 1
+Avatar The Last Airbender S01E01.mp4: 179872KB [00:38, 4686.86KB/s]
+Avatar The Last Airbender S01E02.mp4:  28%|██████▏               | 48208/171162.537109375 [00:10<00:29, 4191.12KB/s]
+```
 
